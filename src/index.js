@@ -1,237 +1,151 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import ReactDOM from 'react-dom';
 import Konva from 'konva';
-import { Stage, Layer, Circle, Line, Arrow} from 'react-konva';
+import { Stage, Layer, Rect, Circle, Line, Arrow} from 'react-konva';
+import GameManager from './game-manager.js'
 
-const BoardManager = {
-
-  produceGobblet(player, color, size){
-    var gobblet = {player: player, color: color, size: size}
-    return gobblet
-  },
-
-  getInitialBoardState(){
-    const emptyBoard = [
-        [ [],[],[],[] ],
-        [ [],[],[],[] ],
-        [ [],[],[],[] ],
-        [ [],[],[],[] ]]
-    return emptyBoard
-  },
-
-  sanitizeCoordinates(coord){
-    if (coord <= 0){
-      return 0
-    }
-    else if (coord >= 3){
-      return 3
-    }
-    else{
-      return coord
-    }
-  },
-
-  getGobblet(board, x, y){
-    x = this.sanitizeCoordinates(x)
-    y = this.sanitizeCoordinates(y)
-    if (board[x][y].length > 0){
-      return board[x][y][board[x][y].length-1]
-    }
-    return null
-  },
-
-  pushGobblet(board, x, y, gobblet){
-    var boardStateCopy = Array.from(board)
-    boardStateCopy[x][y].push(gobblet)
-    return boardStateCopy
-  },
-
-  popGobblet(board, x, y){
-    var boardStateCopy = Array.from(board)
-    var gobblet = boardStateCopy[x][y].pop()
-    return [boardStateCopy, gobblet]
-  },
-
-  moveIsValid(board, x1, y1, x2, y2){
-    const g1 = this.getGobblet(board, x1, y1)
-    const g2 = this.getGobblet(board, x2, y2)
-    if (g1 === null){
-        return false
-    }
-    else if (g2 === null){
-      return true
-    }
-    else{
-      if (g1.size > g2.size){
-        return true
-      }
-    }
-    return false
-  },
-
-  move(board, x1, y1, x2, y2){
-    if (this.moveIsValid(board, x1, y1, x2, y2)){
-      var [board, gobblet] = this.popGobblet(board, x1, y1)
-      board = this.pushGobblet(board, x2, y2, gobblet)
-      return board
-    }
-    else{
-      return board
-    }
-  }
-}
-
-function Board( {width, height, color, boardState} ){
-
-  const coords = [
-    [1,1, width-1,1, width-1,height-1, 1,height-1, 1,1],
-    [width/4,0, width/4,height],
-    [width/2,0, width/2,height],
-    [3*width/4,0, 3*width/4,height],
-    [0,height/4, width,height/4],
-    [0,height/2, width,height/2],
-    [0,3*height/4, width,3*height/4],
-  ]
-
-  const squareToCenterCoord = (x, y) => {
-    return [width/8 + x*width/4, height/8 + y*height/4]
-  }
-
-  const renderGobblets = boardState.map( ( row, i ) => { return (
-    row.map( (square, j) => {
-      if(square.length > 0){
-        var gobblet = square[square.length-1]
+const Board = ({height, width, padding, gameState, gm}) => {
+  const renderBoards = () => {
+    return(
+      Object.keys(gameState).map(function(key, index) {
         return(
-          <Circle
-            x = {squareToCenterCoord(i,j)[0]}
-            y = {squareToCenterCoord(i,j)[1]}
-            fill = {gobblet.color}
+          <Rect
+            x = {gameState[key].dimensions[0]}
+            y = {gameState[key].dimensions[1]}
+            width = {gameState[key].dimensions[2]}
+            height = {gameState[key].dimensions[3]}
             stroke = {"black"}
             strokeWidth = {1}
-            radius = {gobblet.size}
           />
         )
-      }
-      return(null)
-    })
-  )})
-
-  const borders = coords.map( (p, index) => {
-    return(
-      <Line
-        points = {p}
-        stroke = {color}
-        strokeWidth = {1}
-        key = {index}
-      />
+      })
     )
-  });
+  }
+
+  const renderCells = () => {
+    const buffer = []
+    Object.keys(gameState).map(function(key, index) {
+      for(var x = 0; x < gameState[key].state.length; x++){
+        for(var y = 0; y < gameState[key].state[x].length; y++){
+          var cellDimensions = gm.getCellBounds(gameState, key, x, y)
+          buffer.push(
+            <Rect
+              x = {cellDimensions[0]}
+              y = {cellDimensions[1]}
+              width = {cellDimensions[2]}
+              height = {cellDimensions[3]}
+              stroke = {"black"}
+              strokeWidth = {1}
+            />
+          )
+        }
+      }
+    })
+    return buffer
+
+  }
+
+  const renderGobblets = () => {
+    const buffer = []
+    Object.keys(gameState).map(function(key, index) {
+      for(var x = 0; x < gameState[key].state.length; x++){
+        for(var y = 0; y < gameState[key].state[x].length; y++){
+          var gobblet = gm.getGobblet(gameState, key, x, y)
+          if (gobblet != null){
+            var cellCenter = gm.getCellCenter(gameState, key, x, y)
+            buffer.push(
+              <Circle
+                x = {cellCenter[0]}
+                y = {cellCenter[1]}
+                radius = {gobblet.size}
+                stroke = {"black"}
+                strokeWidth = {1}
+                fill = {gobblet.color}
+              />
+            )
+          }
+        }
+      }
+    })
+    return buffer
+  }
 
   return(
     <Layer>
-      {borders}
-      {renderGobblets}
+      {renderBoards()}
+      {renderCells()}
+      {renderGobblets()}
     </Layer>
-  );
+  )
 }
 
-/*
-  Player states:
-    0: Waiting for move
-    1: Placing gobblet
-    2: Opponients move
-*/
 function Game(){
-  const width = 500;
-  const height = 500;
+  /*
+  The height represents the height of the board. The board area is hxh
+  The entire width of the stage 1.5*height + padding (few pixels)
 
-  // Enums
-  const gameStates = {WAIT:0, PLACE:1, OPPTURN: 2}
-  const GOBBLETSIZE = {SMALL:10, MEDIUM:30, LARGE:50}
+  Coorner coordinates for boxes:
+    p1: (padding, padding + h/8) size: (h/4, 3*h/4)
+    p2: (padding*3 + h/4 + h, padding + h/8), size: size: (h/4, 3*h/4)
+    board: (padding*2 + h/4, padding), size: (h*h)
+  gameboard:
+  */
+  const height = 500
+  const width = 1.5*height
+  const padding = 6
+  const p1Coord = [padding, padding + (height/8), height/4, 3*height/4]
+  const p2Coord = [(padding*3) + (height/4) + height, padding + (height/8), height/4, 3*height/4]
+  const boardCoord = [(padding*2) + (height/4), padding, height, height]
+  const gobbletSizes = [height*0.02, height*0.06, height*0.1]
 
   //Overall gamestate tracking
-  const boardManager = BoardManager
-  const [boardState, setBoardState] = useState(boardManager.getInitialBoardState())
-  const [playerState, setPlayerState] = useState(gameStates.WAIT)
-
+  const gameManager = GameManager
+  const [gameState, setGameState] = useState(gameManager.getInitialGameState(p1Coord,p2Coord,boardCoord,"red","blue",gobbletSizes))
   // Mouse tracking
   const [mousePosition, setMousePosition] = useState([0,0])
-  const [mousedOverSquare, setMousedOverSquare] = useState([0,0])
+  const [mousedOverCell, setMousedOverCell] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [selectedSquare, setSelectedSquare] = useState([0,0])
+  const [selectedCell, setSelectedCell] = useState(null)
 
   const mouseTracker = (e) => {
-    var x = parseInt(e.evt.offsetX,10)
-    var y = parseInt(e.evt.offsetY,10)
-    // bounding the mouse to play area
-    if (x < 0){
-      x = 0
-    }
-    if (x > width){
-      x = width
-    }
-    if (y < 0){
-      y = 0
-    }
-    if (y > height){
-      y = height
-    }
-    setMousePosition([x, y])
-    setMousedOverSquare([Math.floor(mousePosition[0]/(width/4)), Math.floor(mousePosition[1]/(height/4))])
+    const stage = e.target.getStage()
+    const x = stage.getPointerPosition().x
+    const y = stage.getPointerPosition().y
+    setMousePosition([x,y])
+    setMousedOverCell(gameManager.mouseToCell(gameState, x, y))
   }
 
-  const squareToCenterCoord = (x, y) => {
-    return [width/8 + x*width/4, height/8 + y*height/4]
+  const handleDrag = () => {
+    if (!isDragging && mousedOverCell !== null){
+      setSelectedCell(Array.from(mousedOverCell))
+      setIsDragging(true)
+    }
   }
 
-  // Main game interaction logic
-  const handleDrag = (e) => {
-    if (!isDragging){
-      var x = Math.floor(mousePosition[0]/(width/4))
-      var y = Math.floor(mousePosition[1]/(height/4))
-      // If valid moveable gobblet exists at that position
-      if (boardManager.getGobblet(boardState, x, y) != null){
-        setSelectedSquare([x, y])
-        setIsDragging(true)
+  const handleRelease = () => {
+    if (selectedCell !== null && mousedOverCell !== null){
+      if (gameManager.moveIsLegal(gameState, selectedCell[0], mousedOverCell[0], selectedCell[1], selectedCell[2], mousedOverCell[1], mousedOverCell[2])){
+        const gameStateCopy = gameManager.moveGobblet(gameState, selectedCell[0], mousedOverCell[0], selectedCell[1], selectedCell[2], mousedOverCell[1], mousedOverCell[2])
+        setGameState(gameStateCopy)
       }
     }
-  }
-
-  const handleRelease = (e) => {
-    if (boardManager.moveIsValid(boardState, selectedSquare[0], selectedSquare[1], mousedOverSquare[0], mousedOverSquare[1])){
-      setBoardState(boardManager.move(boardState,selectedSquare[0], selectedSquare[1], mousedOverSquare[0], mousedOverSquare[1]))
-    }
-    setSelectedSquare([0,0])
+    setSelectedCell(null)
     setIsDragging(false)
+
   }
 
-  // ------------------------------------- //
-  // Testing logic
-  // ------------------------------------- //
-
-  const randomGenGobblets = () => {
-    var boardStateCopy = Array.from(boardManager.getInitialBoardState());
-    const sizes = [10, 30, 50]
-    for (var i = 0; i<7; i++){
-      var size = Math.floor(Math.random()*3)
-      var x = Math.floor(Math.random()*4)
-      var y = Math.floor(Math.random()*4)
-      var gobblet = boardManager.produceGobblet(0, "#3287a8", sizes[size])
-      boardStateCopy = boardManager.pushGobblet(boardStateCopy, x, y, gobblet)
-    }
-    setBoardState(boardStateCopy)
-  }
-
-  const placementArrow = () => {
-    if (isDragging){
-      const refGobblet = boardManager.getGobblet(boardState,selectedSquare[0],selectedSquare[1])
-      if (refGobblet ){
-        if (boardManager.moveIsValid(boardState, selectedSquare[0], selectedSquare[1], mousedOverSquare[0], mousedOverSquare[1])){
+  const trackingArrow = () => {
+    if (isDragging && selectedCell !== null && mousedOverCell !== null){
+      var center = gameManager.getCellCenter( gameState, selectedCell[0], selectedCell[1], selectedCell[2] )
+      var refGobblet = gameManager.getGobblet( gameState, selectedCell[0], selectedCell[1], selectedCell[2] )
+      if (refGobblet !== null){
+        if (gameManager.moveIsLegal(gameState, selectedCell[0], mousedOverCell[0], selectedCell[1], selectedCell[2], mousedOverCell[1], mousedOverCell[2])){
+          var targetCenter = gameManager.getCellCenter( gameState, mousedOverCell[0], mousedOverCell[1], mousedOverCell[2] )
           return(
             <Layer>
               <Circle
-                x = {squareToCenterCoord(mousedOverSquare[0],mousedOverSquare[1])[0]}
-                y = {squareToCenterCoord(mousedOverSquare[0],mousedOverSquare[1])[1]}
+                x = {targetCenter[0]}
+                y = {targetCenter[1]}
                 radius = {refGobblet.size}
                 fill = {refGobblet.color}
                 dash = {[5,1]}
@@ -240,13 +154,8 @@ function Game(){
               />
               <Arrow
                 stroke = {"black"}
-                points = {[
-                  squareToCenterCoord(selectedSquare[0],selectedSquare[1])[0],
-                  squareToCenterCoord(selectedSquare[0],selectedSquare[1])[1],
-                  mousePosition[0],
-                  mousePosition[1]
-                ]}
                 strokeWidth = {1}
+                points = {[center[0], center[1], mousePosition[0], mousePosition[1]]}
               />
             </Layer>
           )
@@ -256,42 +165,36 @@ function Game(){
             <Layer>
               <Arrow
                 stroke = {"black"}
-                points = {[
-                  squareToCenterCoord(selectedSquare[0],selectedSquare[1])[0],
-                  squareToCenterCoord(selectedSquare[0],selectedSquare[1])[1],
-                  mousePosition[0],
-                  mousePosition[1]
-                ]}
                 strokeWidth = {1}
+                points = {[center[0], center[1], mousePosition[0], mousePosition[1]]}
               />
             </Layer>
           )
         }
       }
     }
-
     return null
   }
-
 
   return(
     <div>
       <Stage
-        width={width}
-        height={height}
-        onMouseDown = {(e) => {handleDrag(e)}}
+        width={width + 4*padding}
+        height={height + 2*padding}
         onMouseMove = {(e) => {mouseTracker(e)}}
-        onMouseUp = {(e) => {handleRelease()}}
+        onMouseDown = {(e) => {handleDrag(e)}}
+        onMouseUp = {(e) => {handleRelease(e)}}
       >
         <Board
-          width = {width}
           height = {height}
-          color = {"#3287a8"}
-          boardState = {boardState}
+          width = {width}
+          padding = {padding}
+          gameState = {gameState}
+          gm = {gameManager}
         />
-        {placementArrow()}
+        {trackingArrow()}
       </Stage>
-      <button onClick={randomGenGobblets}>Random gobblets</button>
+      <button onClick={() => {setGameState(gameManager.getInitialGameState(p1Coord,p2Coord,boardCoord,"red","blue",gobbletSizes))} }> Reset! </button>
     </div>
   )
 }
