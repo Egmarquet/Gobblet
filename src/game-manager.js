@@ -17,7 +17,6 @@ const GameManager = {
         var gobblet = this.produceGobblet(0, "#3287a8", sizes[size])
         gameStateCopy = this.pushGobblet(gameStateCopy, "board", x, y, gobblet)
       }
-      console.log(gameStateCopy)
       return gameStateCopy
   },
 
@@ -82,7 +81,6 @@ const GameManager = {
   },
 
   moveIsLegal: function( gameState, name1, name2, x1, y1, x2, y2 ){
-    console.log(gameState, name2, x2, y2)
     var gobblet1 = this.getGobblet(gameState, name1, x1, y1)
     var gobblet2 = this.getGobblet(gameState, name2, x2, y2)
 
