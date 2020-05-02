@@ -81,6 +81,10 @@ const BoardManager = {
   }
 }
 
+const PlayerMat = {
+
+}
+
 function Board( {width, height, color, boardState} ){
 
   const coords = [
@@ -272,7 +276,6 @@ function Game(){
 
     return null
   }
-
 
   return(
     <div>
