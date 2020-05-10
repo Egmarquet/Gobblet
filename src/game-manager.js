@@ -5,22 +5,13 @@ const GameManager = {
     return gobblet
   },
 
-  pushRandomGobblets: function( p1Dimensions, p2Dimensions, boardDimensions ){
-      var gameStateCopy = this.getInitialGameState(p1Dimensions, p2Dimensions, boardDimensions)
-      const sizes = [10, 30, 50]
+  getInitialGameState: function( height, padding ){
+    const width = 1.5*height
+    const p1Coord = [padding, padding + (height/8), height/4, 3*height/4]
+    const p2Coord = [(padding*3) + (height/4) + height, padding + (height/8), height/4, 3*height/4]
+    const boardCoord = [(padding*2) + (height/4), padding, height, height]
+    const gobbletSizes = [height*0.02, height*0.06, height*0.1]
 
-      for (var i = 0; i<7; i++){
-        var size = Math.floor(Math.random()*3)
-        var l = Math.floor(Math.random()*3)
-        var x = Math.floor(Math.random()*4)
-        var y = Math.floor(Math.random()*4)
-        var gobblet = this.produceGobblet(0, "#3287a8", sizes[size])
-        gameStateCopy = this.pushGobblet(gameStateCopy, "board", x, y, gobblet)
-      }
-      return gameStateCopy
-  },
-
-  getInitialGameState: function( p1Dimensions, p2Dimensions, boardDimensions, p1_color, p2_color, gobbletSizes ){
     const initGameState = {
       board:
       {
@@ -29,26 +20,26 @@ const GameManager = {
           [ [],[],[],[] ],
           [ [],[],[],[] ],
           [ [],[],[],[] ]],
-        dimensions: boardDimensions
+        dimensions: boardCoord
       },
 
       p1:
       {
         state: [ [ [], [], [] ] ],
-        dimensions: p1Dimensions
+        dimensions: p1Coord
       },
 
       p2:
       {
         state: [ [ [], [], [] ] ],
-        dimensions: p2Dimensions
+        dimensions: p2Coord
       }
     }
 
     for (var i = 0; i < 3; i++){
       for (var j = 0; j < 3; j++){
-        initGameState["p1"].state[0][i].push(this.produceGobblet("p1", p1_color, gobbletSizes[j]))
-        initGameState["p2"].state[0][i].push(this.produceGobblet("p2", p2_color, gobbletSizes[j]))
+        initGameState["p1"].state[0][i].push(this.produceGobblet("p1", "red", gobbletSizes[j]))
+        initGameState["p2"].state[0][i].push(this.produceGobblet("p2", "blue", gobbletSizes[j]))
       }
     }
 
@@ -75,6 +66,7 @@ const GameManager = {
   },
 
   moveGobblet: function( gameState, name1, name2, x1, y1, x2, y2 ){
+    console.log("moving")
     var [gameStateCopy, gobblet] = this.popGobblet(gameState, name1, x1, y1)
     gameStateCopy = this.pushGobblet(gameStateCopy, name2, x2, y2, gobblet)
     return gameStateCopy
@@ -85,7 +77,9 @@ const GameManager = {
     Legal moves:
     1. From player mat to empty square on board, unless 3.
     2. From emptry square on board to any empty square on board, or square with a smaller gobblet
-    3. If an enemy player has a row of 3 gobblets
+    3. If an enemy player has a row of 3 gobblets, a capture is possible
+
+    3 currently not implemented
     */
     var gobblet1 = this.getGobblet(gameState, name1, x1, y1)
     var gobblet2 = this.getGobblet(gameState, name2, x2, y2)
@@ -145,6 +139,53 @@ const GameManager = {
     var noCellsX = gameState[name].state.length
     var noCellsY = gameState[name].state[0].length
     return [x + (width*cellX/noCellsX) + width/(2*noCellsX), y + (height*cellY/noCellsY) + height/(2*noCellsY)]
+  },
+
+  rowIsWon: function ( gameState, row ){
+    var winner = this.getGobblet( gameState, "board", row, 0 )
+    if (winner === null){
+      return null
+    }
+    else{
+      for (var col = 0; col < 4; col++){
+        var gobblet = this.getGobblet( gameState, "board", row, col )
+        if (gobblet === null){
+          return null
+        }
+        else if (gobblet.player !== winner.player){
+          return null
+        }
+      }
+    }
+    return winner
+  },
+
+  colIsWon: function (gameState, col){
+    var winner = this.getGobblet( gameState, "board", 0, col )
+    if (winner === null){
+      return null
+    }
+    else{
+      for (var row = 0; row < 4; row++){
+        var gobblet = this.getGobblet( gameState, "board", row, col )
+        if (gobblet === null){
+          return null
+        }
+        else if (gobblet.player !== winner.player){
+          return null
+        }
+      }
+    }
+    return winner
+  },
+
+  isWon: function(gameState, row, col){
+    var rowWin = this.rowIsWon(gameState, row)
+    var colWin = this.colIsWon(gameState, col)
+    if (rowWin !== null || colWin !== null){
+      return true
+    }
+    return false
   }
 }
 

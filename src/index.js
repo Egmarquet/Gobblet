@@ -1,64 +1,166 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import ReactDOM from 'react-dom';
-import GameManager from './game-manager.js'
 import Game from './game.js'
+import GameManager from './game-manager.js'
 import io from 'socket.io-client';
 
-const socket = io('http://localhost:5000', {autoConnect: false})
+const socket = io('http://localhost:5000', {autoConnect: false, 'force new connection': true})
+const gameManager = GameManager
 
 const Main = () => {
+  // Game Sizes
+  const [height, setHeight] = useState(300)
+  const [padding, setPadding] = useState(5)
 
+  // Tracking lobby state
+  const connected = useRef(false)
   const [sID, setSID] = useState(null)
   const [roomID, setRoomID] = useState(null)
+  const [status, setStatus] = useState(null)
   const [joinLobbyField, setJoinLobbyField] = useState("")
 
+  //Tracking gamestates
   const [player, setPlayer] = useState(null)
-  const [lobbyID, setLobbyID] = useState("")
+  const [isPlayersTurn, setIsPlayersTurn] = useState(false)
+  const [gameState, setGameState] = useState(gameManager.getInitialGameState(height, padding))
+  const currentTurn = useRef(0)
 
-  useEffect( () => {
-    socketListener()
-  })
-
-  const socketListener = () => {
-
-    socket.on("connection_accepted", (data) => {
-      setSID(data)
-    })
-
-    socket.on("new_lobby", (data) => {
-      setLobbyID(data.roomID)
-    })
-
-    socket.on("retrieve_all_users", (data) => {
-      console.log(data)
-    })
-
-    socket.on("lobby_status", (data)=>{
-      console.log("in lobby:", data)
-    })
+  const makeMove = (move) => {
+    const payload =  {move: move, sender: player, roomID:roomID, turn: currentTurn.current+1}
+    makeNewMove(payload)
+    socket.emit("make_move", payload)
   }
 
-  const get_all_users = () => {
-    socket.emit('get_all_users')
+  const makeNewMove = (data) => {
+    //Only u pdate on new move
+    if (data.turn === currentTurn.current+1){
+      currentTurn.current = currentTurn.current+1
+      const move = data.move
+      const boardStateCopy = gameManager.moveGobblet(gameState, move[0], move[3], move[1], move[2], move[4], move[5])
+      setGameState(boardStateCopy)
+      if (data.sender === player){
+        setIsPlayersTurn(false)
+      }
+      else{
+        setIsPlayersTurn(true)
+      }
+    }
+  }
+
+  // ------------------------------------------------- //
+  // Lobby state connectivity
+  // ------------------------------------------------- //
+  useEffect( () => {
+    if (connected){
+      socket.on("connection_accepted", (data) => {
+        setSID(data)
+      })
+      socket.on("get_move", (data) => {
+        if (player && data.sender !== player && status === "active"){
+          makeNewMove(data)
+        }
+      })
+      // Main setting for getting gamestate updates
+      socket.on("lobby_status", (data) => {
+        setStatus(data.status)
+        setRoomID(data.roomID)
+        if (data.p1ID === sID){
+          setPlayer("p1")
+        }
+        else if (data.p2ID === sID){
+          setPlayer("p2")
+        }
+
+        if (status === "waiting" && data.status === "active" && player === "p1"){
+          setIsPlayersTurn(true)
+        }
+
+        else if(data.status === "dne"){
+          disconnect("dne")
+        }
+
+        else if(data.status === "disconnected"){
+          disconnect("disconnected")
+        }
+
+        else if (data.status === "full"){
+          disconnect("full")
+        }
+      })
+    }
+  })
+
+  const connect = () =>  {
+    setStatus("connecting")
+    connected.current = true
+    socket.connect()
+  }
+
+  const disconnect = (status) => {
+    // REsetting socket stuff
+    socket.disconnect()
+    socket.removeAllListeners()
+    connected.current = false
+    setSID(null)
+    setRoomID(null)
+    setStatus(status)
+
+    // Resetting game state
+    setPlayer(null)
+    setIsPlayersTurn(false)
+    currentTurn.current = 0
+    setGameState(gameManager.getInitialGameState(height, padding))
   }
 
   const createLobby = () => {
+    connect()
     socket.emit("create_lobby")
   }
 
-  const joinLobby = (roomID, color) => {
-    socket.emit("join_lobby", {roomid: roomID, color: color})
+  const joinLobby = () => {
+    connect()
+    socket.emit("join_lobby", {roomID: joinLobbyField})
   }
-
+  
   return(
     <div>
-      <Game/>
-      <span> sid: {sID} </span>
-      <button onClick={(e) => get_all_users()}> Get all users </button>
+      <div>
+        <Game
+          height = {height}
+          padding = {padding}
+          gameManager = {gameManager}
+          gameState = {gameState}
+          makeMove = {makeMove}
+          player = {player}
+          isPlayersTurn = {isPlayersTurn}
+        />
+      </div>
       <button onClick={(e) => createLobby()}> Create lobby </button>
-      <button> Join lobby </button>
-      <input value={joinLobbyField} onChange={(e) => {setJoinLobbyField(e.target.value)}}/>
-      {"lobby id: "+ lobbyID}
+      <div>
+        {"status: "+ status}
+      </div>
+
+      <div>
+        {"room id: "+ roomID}
+      </div>
+
+      <div>
+        {"sid: " +sID}
+      </div>
+
+      <div>
+        {"player: " +player}
+      </div>
+      <div>
+        {"turn: " + currentTurn.current}
+      </div>
+
+
+      <div>
+        <button onClick={(e) => joinLobby()}>Join</button>
+        <input value={joinLobbyField} onChange={(e) => {setJoinLobbyField(e.target.value)}}/>
+      </div>
+      <div><button onClick={(e) => disconnect(null)}>disconnect</button></div>
     </div>
   )
 }

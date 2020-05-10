@@ -2,10 +2,9 @@ import React, {useState, useEffect} from 'react';
 import ReactDOM from 'react-dom';
 import Konva from 'konva';
 import { Stage, Layer, Rect, Circle, Line, Arrow} from 'react-konva';
-import GameManager from './game-manager.js'
 import Board from './board.js'
 
-function Game(){
+function Game({ height, padding, gameManager, gameState, makeMove, player, isPlayersTurn}){
   /*
   The height represents the height of the board. The board area is hxh
   The entire width of the stage 1.5*height + padding (few pixels)
@@ -16,20 +15,8 @@ function Game(){
     board: (padding*2 + h/4, padding), size: (h*h)
   gameboard:
   */
-  const height = 300
-  const width = 1.5*height
-  const padding = 6
-  const p1Coord = [padding, padding + (height/8), height/4, 3*height/4]
-  const p2Coord = [(padding*3) + (height/4) + height, padding + (height/8), height/4, 3*height/4]
-  const boardCoord = [(padding*2) + (height/4), padding, height, height]
-  const gobbletSizes = [height*0.02, height*0.06, height*0.1]
-
   //Overall gamestate tracking
-  const gameManager = GameManager
-  const [gameState, setGameState] = useState(gameManager.getInitialGameState(p1Coord,p2Coord,boardCoord,"red","blue",gobbletSizes))
-  const [pnum, setPnum] = useState("p2")
-  const [playerState, setPlayerState] = useState(true)
-  const [lastMove, setLastMove] = useState(null)
+  const [winner, setWinner] = useState(null)
 
   // Mouse tracking
   const [mousePosition, setMousePosition] = useState([0,0])
@@ -44,11 +31,16 @@ function Game(){
     setMousePosition([x,y])
     setMousedOverCell(gameManager.mouseToCell(gameState, x, y))
   }
+  /*
+    Determining which player can move:
+      playerTurn === true
 
+    Determining
+  */
   const handleDrag = () => {
-    if (!isDragging && mousedOverCell !== null && playerState){
+    if (!isDragging && mousedOverCell !== null && isPlayersTurn){
       var gobblet = gameManager.getGobblet(gameState, mousedOverCell[0], mousedOverCell[1], mousedOverCell[2])
-      if (gobblet && gobblet.player === pnum){
+      if (gobblet && gobblet.player === player){
         setSelectedCell(Array.from(mousedOverCell))
         setIsDragging(true)
       }
@@ -56,17 +48,27 @@ function Game(){
   }
 
   const handleRelease = () => {
-    if (selectedCell !== null && mousedOverCell !== null){
+    if (selectedCell !== null && mousedOverCell !== null && isPlayersTurn){
       if (gameManager.moveIsLegal(gameState, selectedCell[0], mousedOverCell[0], selectedCell[1], selectedCell[2], mousedOverCell[1], mousedOverCell[2])){
-        const gameStateCopy = gameManager.moveGobblet(gameState, selectedCell[0], mousedOverCell[0], selectedCell[1], selectedCell[2], mousedOverCell[1], mousedOverCell[2])
-        setGameState(gameStateCopy)
-        setLastMove([selectedCell[0], selectedCell[1], selectedCell[2], mousedOverCell[0], mousedOverCell[1], mousedOverCell[2]])
-        setPlayerState(false)
+        makeMove([selectedCell[0], selectedCell[1], selectedCell[2], mousedOverCell[0], mousedOverCell[1], mousedOverCell[2]])
+
+        // Checking for winners
+        if(selectedCell[0] === "board" && !winner){
+          var wonPlayer = gameManager.isWon(gameState, selectedCell[1], selectedCell[2])
+          if(wonPlayer){
+            setWinner(wonPlayer)
+          }
+        }
+        if(mousedOverCell[0] === "board" && !winner){
+          var wonPlayer = gameManager.isWon(gameState, mousedOverCell[1], mousedOverCell[2])
+          if(wonPlayer){
+            setWinner(wonPlayer)
+          }
+        }
       }
     }
     setSelectedCell(null)
     setIsDragging(false)
-
   }
 
   const trackingArrow = () => {
@@ -114,24 +116,19 @@ function Game(){
   return(
     <div>
       <Stage
-        width={width + 4*padding}
+        width={1.5*height + 4*padding}
         height={height + 2*padding}
         onMouseMove = {(e) => {mouseTracker(e)}}
         onMouseDown = {(e) => {handleDrag(e)}}
         onMouseUp = {(e) => {handleRelease(e)}}
       >
         <Board
-          height = {height}
-          width = {width}
-          padding = {padding}
           gameState = {gameState}
-          gm = {gameManager}
-          playerState = {playerState}
+          gameManager = {gameManager}
+          isPlayersTurn = {isPlayersTurn}
         />
         {trackingArrow()}
       </Stage>
-      <button onClick={() => {setGameState(gameManager.getInitialGameState(p1Coord,p2Coord,boardCoord,"red","blue",gobbletSizes))} }> Reset! </button>
-
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom';
 import Konva from 'konva';
 import {Layer, Rect, Circle} from 'react-konva';
@@ -8,7 +8,8 @@ const Colors = {
   inactive: "#c4c8cf"
 }
 
-const Board = ({height, width, padding, gameState, playerState, gm}) => {
+const Board = ({gameState, isPlayersTurn, gameManager}) => {
+
   const renderBoards = () => {
     return(
       Object.keys(gameState).map(function(key, index) {
@@ -19,7 +20,7 @@ const Board = ({height, width, padding, gameState, playerState, gm}) => {
               y = {gameState[key].dimensions[1]}
               width = {gameState[key].dimensions[2]}
               height = {gameState[key].dimensions[3]}
-              stroke = {playerState ? Colors.active : Colors.inactive}
+              stroke = {isPlayersTurn ? Colors.active : Colors.inactive}
               strokeWidth = {1}
             />
           )
@@ -33,14 +34,14 @@ const Board = ({height, width, padding, gameState, playerState, gm}) => {
     Object.keys(gameState).map(function(key, index) {
       for(var x = 0; x < gameState[key].state.length; x++){
         for(var y = 0; y < gameState[key].state[x].length; y++){
-          var cellDimensions = gm.getCellBounds(gameState, key, x, y)
+          var cellDimensions = gameManager.getCellBounds(gameState, key, x, y)
           buffer.push(
             <Rect
               x = {cellDimensions[0]}
               y = {cellDimensions[1]}
               width = {cellDimensions[2]}
               height = {cellDimensions[3]}
-              stroke = {playerState ? Colors.active : Colors.inactive}
+              stroke = {isPlayersTurn ? Colors.active : Colors.inactive}
               strokeWidth = {1}
               cornerRadius = {cellDimensions[2]/5}
             />
@@ -57,9 +58,9 @@ const Board = ({height, width, padding, gameState, playerState, gm}) => {
     Object.keys(gameState).map(function(key, index) {
       for(var x = 0; x < gameState[key].state.length; x++){
         for(var y = 0; y < gameState[key].state[x].length; y++){
-          var gobblet = gm.getGobblet(gameState, key, x, y)
+          var gobblet = gameManager.getGobblet(gameState, key, x, y)
           if (gobblet != null){
-            var cellCenter = gm.getCellCenter(gameState, key, x, y)
+            var cellCenter = gameManager.getCellCenter(gameState, key, x, y)
             buffer.push(
               <Circle
                 x = {cellCenter[0]}
