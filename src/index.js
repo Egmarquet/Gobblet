@@ -4,7 +4,7 @@ import Game from './game.js'
 import GameManager from './game-manager.js'
 import io from 'socket.io-client';
 
-const socket = io('http://localhost:5000', {autoConnect: false, 'force new connection': true})
+const socket = io('https://gobblet.herokuapp.com/', {autoConnect: false, 'force new connection': true})
 const gameManager = GameManager
 
 const Main = () => {
@@ -47,6 +47,11 @@ const Main = () => {
     }
   }
 
+  const setWinner = (winner) => {
+    if (winner) {
+      disconnect(winner)
+    }
+  }
   // ------------------------------------------------- //
   // Lobby state connectivity
   // ------------------------------------------------- //
@@ -121,7 +126,7 @@ const Main = () => {
     connect()
     socket.emit("join_lobby", {roomID: joinLobbyField})
   }
-  
+
   return(
     <div>
       <div>
@@ -133,6 +138,7 @@ const Main = () => {
           makeMove = {makeMove}
           player = {player}
           isPlayersTurn = {isPlayersTurn}
+          setWinner = {setWinner}
         />
       </div>
       <button onClick={(e) => createLobby()}> Create lobby </button>

@@ -4,19 +4,7 @@ import Konva from 'konva';
 import { Stage, Layer, Rect, Circle, Line, Arrow} from 'react-konva';
 import Board from './board.js'
 
-function Game({ height, padding, gameManager, gameState, makeMove, player, isPlayersTurn}){
-  /*
-  The height represents the height of the board. The board area is hxh
-  The entire width of the stage 1.5*height + padding (few pixels)
-
-  Coorner coordinates for boxes:
-    p1: (padding, padding + h/8) size: (h/4, 3*h/4)
-    p2: (padding*3 + h/4 + h, padding + h/8), size: size: (h/4, 3*h/4)
-    board: (padding*2 + h/4, padding), size: (h*h)
-  gameboard:
-  */
-  //Overall gamestate tracking
-  const [winner, setWinner] = useState(null)
+function Game({ height, padding, gameManager, gameState, makeMove, player, isPlayersTurn, setWinner}){
 
   // Mouse tracking
   const [mousePosition, setMousePosition] = useState([0,0])
@@ -53,13 +41,13 @@ function Game({ height, padding, gameManager, gameState, makeMove, player, isPla
         makeMove([selectedCell[0], selectedCell[1], selectedCell[2], mousedOverCell[0], mousedOverCell[1], mousedOverCell[2]])
 
         // Checking for winners
-        if(selectedCell[0] === "board" && !winner){
+        if(selectedCell[0] === "board"){
           var wonPlayer = gameManager.isWon(gameState, selectedCell[1], selectedCell[2])
           if(wonPlayer){
             setWinner(wonPlayer)
           }
         }
-        if(mousedOverCell[0] === "board" && !winner){
+        if(mousedOverCell[0] === "board"){
           var wonPlayer = gameManager.isWon(gameState, mousedOverCell[1], mousedOverCell[2])
           if(wonPlayer){
             setWinner(wonPlayer)

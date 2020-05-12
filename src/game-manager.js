@@ -141,51 +141,44 @@ const GameManager = {
     return [x + (width*cellX/noCellsX) + width/(2*noCellsX), y + (height*cellY/noCellsY) + height/(2*noCellsY)]
   },
 
-  rowIsWon: function ( gameState, row ){
-    var winner = this.getGobblet( gameState, "board", row, 0 )
+  coordsAreWon: function (gameState, coords){
+    var winner = this.getGobblet( gameState, "board", coords[0][0], coords[0][1] )
     if (winner === null){
       return null
     }
-    else{
-      for (var col = 0; col < 4; col++){
-        var gobblet = this.getGobblet( gameState, "board", row, col )
-        if (gobblet === null){
-          return null
-        }
-        else if (gobblet.player !== winner.player){
-          return null
-        }
+    for (const coord of coords){
+      var gobblet = this.getGobblet( gameState, "board", coord[0], coord[1] )
+      if (gobblet === null){
+        return null
+      }
+      else if (gobblet.player !== winner.player){
+        return null
       }
     }
-    return winner
-  },
-
-  colIsWon: function (gameState, col){
-    var winner = this.getGobblet( gameState, "board", 0, col )
-    if (winner === null){
-      return null
+    if (winner){
+      return winner.player
     }
-    else{
-      for (var row = 0; row < 4; row++){
-        var gobblet = this.getGobblet( gameState, "board", row, col )
-        if (gobblet === null){
-          return null
-        }
-        else if (gobblet.player !== winner.player){
-          return null
-        }
-      }
-    }
-    return winner
+    return null
   },
 
   isWon: function(gameState, row, col){
-    var rowWin = this.rowIsWon(gameState, row)
-    var colWin = this.colIsWon(gameState, col)
-    if (rowWin !== null || colWin !== null){
-      return true
+    var winner = null
+    const diagCoords = [[0,0],[1,1],[2,2],[3,3]]
+    const antiDiagCoords = [[0,3],[1,2],[2,1],[3,0]]
+    const rowCoords = []
+    const colCoords = []
+    for (var i = 0; i < 4; i++){
+      rowCoords.push([row, i])
+      colCoords.push([i, col])
     }
-    return false
+    const check = [rowCoords, colCoords, diagCoords, antiDiagCoords]
+    for (var coords of check){
+      winner = this.coordsAreWon(gameState, coords)
+      if ( winner ){
+        return winner
+      }
+    }
+    return winner
   }
 }
 
